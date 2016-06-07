@@ -378,6 +378,9 @@
     <ClInclude Include="sph\sha256_Y.h" />
     <ClInclude Include="sph\sysendian.h" />
     <ClInclude Include="log.h" />
+    <ClInclude Include="cuda_vector.h">
+      <Filter>Header Files\CUDA</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cuda.cpp">

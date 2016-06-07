@@ -478,6 +478,7 @@ struct work_restart {
 	char			padding[128 - sizeof(unsigned long)];
 };
 
+extern bool opt_eco_mode;
 extern bool opt_benchmark;
 extern bool opt_debug;
 extern bool opt_quiet;

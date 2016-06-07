@@ -103,10 +103,10 @@
     </Link>
     <CudaCompile>
       <CInterleavedPTX>false</CInterleavedPTX>
-      <MaxRegCount>80</MaxRegCount>
+      <MaxRegCount>255</MaxRegCount>
       <PtxAsOptionV>true</PtxAsOptionV>
-      <Keep>false</Keep>
-      <CodeGeneration>compute_50,sm_50</CodeGeneration>
+      <Keep>true</Keep>
+      <CodeGeneration>compute_52,sm_52;compute_50,sm_50;compute_35,sm_35</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -131,11 +131,12 @@
     </Link>
     <CudaCompile>
       <CInterleavedPTX>false</CInterleavedPTX>
-      <MaxRegCount>80</MaxRegCount>
+      <MaxRegCount>255</MaxRegCount>
       <PtxAsOptionV>true</PtxAsOptionV>
       <Keep>true</Keep>
-      <CodeGeneration>compute_50,sm_50</CodeGeneration>
+      <CodeGeneration>compute_52,sm_52;compute_50,sm_50;compute_35,sm_35</CodeGeneration>
       <Include>$(NVTOOLSEXT_PATH)\include;..\..\..\Common\C99</Include>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
     <CudaLink>
       <PerformDeviceLink>false</PerformDeviceLink>
@@ -173,13 +174,14 @@
     </Link>
     <CudaCompile>
       <CInterleavedPTX>false</CInterleavedPTX>
-      <MaxRegCount>80</MaxRegCount>
+      <MaxRegCount>255</MaxRegCount>
       <PtxAsOptionV>true</PtxAsOptionV>
       <Keep>true</Keep>
-      <CodeGeneration>compute_52,sm_52;compute_50,sm_50</CodeGeneration>
+      <CodeGeneration>compute_52,sm_52;compute_50,sm_50;compute_35,sm_35</CodeGeneration>
       <AdditionalOptions>--ptxas-options="-O3" %(AdditionalOptions)</AdditionalOptions>
       <Defines>
       </Defines>
+      <Optimization>O3</Optimization>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>false</GPUDebugInfo>
@@ -215,12 +217,14 @@
     </Link>
     <CudaCompile>
       <CInterleavedPTX>false</CInterleavedPTX>
-      <MaxRegCount>80</MaxRegCount>
+      <MaxRegCount>255</MaxRegCount>
       <PtxAsOptionV>true</PtxAsOptionV>
-      <Keep>false</Keep>
-      <CodeGeneration>compute_50,sm_50</CodeGeneration>
+      <Keep>true</Keep>
+      <CodeGeneration>compute_52,sm_52;compute_50,sm_50;compute_35,sm_35</CodeGeneration>
       <Include>
       </Include>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <Optimization>O3</Optimization>
     </CudaCompile>
     <CudaLink>
       <PerformDeviceLink>false</PerformDeviceLink>
@@ -320,6 +324,7 @@
     <ClInclude Include="cpuminer-config.h" />
     <ClInclude Include="cuda_groestlcoin.h" />
     <ClInclude Include="cuda_helper.h" />
+    <ClInclude Include="cuda_vector.h" />
     <ClInclude Include="elist.h" />
     <ClInclude Include="heavy\heavy.h" />
     <ClInclude Include="hefty1.h" />

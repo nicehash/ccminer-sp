@@ -84,49 +84,101 @@ extern "C" int scanhash_lyra2v2(int thr_id, uint32_t *pdata,
 	unsigned long *hashes_done)
 {
 	const uint32_t first_nonce = pdata[19];
-	uint32_t intensity = 256 * 256 * 8;
-	uint32_t tpb = 8;
-//	bool mergeblakekeccak = false;
+	uint32_t intensity = 256 * 256 * 4;
+	uint32_t tpb = 32;
+	//bool mergeblakekeccak = false;
 	cudaDeviceProp props;
 	cudaGetDeviceProperties(&props, device_map[thr_id]);
-	if (strstr(props.name, "970"))
+	if (!opt_eco_mode)
 	{
-		tpb = 10;
-		intensity = 256 * 256 * 20;
+		if (strstr(props.name, "TITAN X"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 32;
+		}
+		else if (strstr(props.name, "970"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 32;
+		}
+		else if (strstr(props.name, "980 Ti"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 32;
+		}
+		else if (strstr(props.name, "980"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 32;
+		}
+		else if (strstr(props.name, "750 Ti"))
+		{
+			intensity = 256 * 256 * 4;
+			tpb = 32;
+			//mergeblakekeccak = true;
+		}
+		else if (strstr(props.name, "750"))
+		{
+			intensity = 256 * 256 * 4;
+			tpb = 32;
+			//mergeblakekeccak = true;
+		}
+		else if (strstr(props.name, "960"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 8;
+		}
+		else if (strstr(props.name, "950"))
+		{
+			intensity = 256 * 256 * 8;
+			tpb = 32;
+		}
 	}
-	else if (strstr(props.name, "980 Ti"))
+	else
 	{
-		tpb = 10;
-		intensity = 256 * 256 * 18;
+		if (strstr(props.name, "TITAN X"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 4;
+		}
+		else if (strstr(props.name, "970"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 4;
+		}
+		else if (strstr(props.name, "980 Ti"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 4;
+		}
+		else if (strstr(props.name, "980"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 4;
+		}
+		else if (strstr(props.name, "750 Ti"))
+		{
+			intensity = 256 * 256 / 2;
+			tpb = 32;
+			//mergeblakekeccak = true;
+		}
+		else if (strstr(props.name, "750"))
+		{
+			intensity = 256 * 256 / 2;
+			tpb = 32;
+			//mergeblakekeccak = true;
+		}
+		else if (strstr(props.name, "960"))
+		{
+			tpb = 32;
+			intensity = 256 * 256 * 1;
+		}
+		else if (strstr(props.name, "950"))
+		{
+			intensity = 256 * 256 * 1;
+			tpb = 32;
+		}
 	}
-	else if (strstr(props.name, "980"))
-	{
-		tpb = 10;
-		intensity = 256 * 256 * 18;
-	}
-	else if (strstr(props.name, "750 Ti"))
-	{
-		intensity = 256 * 256 * 10;
-		tpb = 16;
-//		mergeblakekeccak = true;
-	}
-	else if (strstr(props.name, "750"))
-	{
-		intensity = 256 * 256 * 5;
-		tpb = 16;
-//		mergeblakekeccak = true;
-	}
-	else if (strstr(props.name, "960"))
-	{
-		tpb = 9;
-		intensity = 256 * 256 * 18;
-	}
-	else if (strstr(props.name, "950"))
-	{
-		intensity = 256 * 256 * 18;
-		tpb = 13;
-	}
-
 	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity);
 
 	if (opt_benchmark)
@@ -143,9 +195,11 @@ extern "C" int scanhash_lyra2v2(int thr_id, uint32_t *pdata,
 		skein256_cpu_init(thr_id, throughput);
 		bmw256_cpu_init(thr_id, throughput);
 
-		CUDA_SAFE_CALL(cudaMalloc(&d_hash2[thr_id], 16 * 4 * 3 * sizeof(uint64_t) * throughput));
+		CUDA_SAFE_CALL(cudaMalloc(&d_hash2[thr_id], 4 * sizeof(uint64_t) * 4 * throughput + 128));
+		d_hash2[thr_id] = (uint64_t*)(((uint64_t)d_hash2[thr_id] + 127)&~127);
 		lyra2v2_cpu_init(thr_id, throughput, d_hash2[thr_id]);
-		CUDA_SAFE_CALL(cudaMalloc(&d_hash[thr_id], 8 * sizeof(uint32_t) * throughput));
+		CUDA_SAFE_CALL(cudaMalloc(&d_hash[thr_id], 8 * sizeof(uint32_t) * throughput+128));
+		d_hash[thr_id] = (uint64_t*)(((uint64_t)d_hash[thr_id] + 127)&~127);
 		init[thr_id] = true;
 	}
 
@@ -156,24 +210,27 @@ extern "C" int scanhash_lyra2v2(int thr_id, uint32_t *pdata,
 	blake256_cpu_setBlock_80(pdata);
 
 	do {
+		//applog(LOG_WARNING, "GPU #%d: Loop Start! ptarget = %8x%8x%8x%8x%8x%8x%8x%8x", thr_id, ptarget[7], ptarget[6], ptarget[5], ptarget[4], ptarget[3], ptarget[2], ptarget[1], ptarget[0] );
 		uint32_t foundNonce[2] = { 0, 0 };
 
-//		if (mergeblakekeccak)
-//		{
-			blakeKeccak256_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]);
+		//		if (mergeblakekeccak)
+		//		{
+		blakeKeccak256_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]);
 
-/*		}
+		/*		}
 		else
 		{
-			blake256_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]);
-			keccak256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);
+		blake256_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]);
+		keccak256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		}
-*/
+		*/
+
 		cubehash256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		lyra2v2_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], tpb);
 		skein256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		cubehash256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		bmw256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], foundNonce, ptarget[7]);
+
 		//		foundNonce[0] = 0xffffffff;
 		if (foundNonce[0] != 0xffffffff)
 		{
@@ -206,7 +263,7 @@ extern "C" int scanhash_lyra2v2(int thr_id, uint32_t *pdata,
 		pdata[19] += throughput;
 
 	} while (!scan_abort_flag && !work_restart[thr_id].restart && ((uint64_t)max_nonce > ((uint64_t)(pdata[19]) + (uint64_t)throughput)));
-
+	
 	*hashes_done = pdata[19] - first_nonce;
 	return 0;
 }

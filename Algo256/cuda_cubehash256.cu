@@ -2,7 +2,7 @@
 
 #define CUBEHASH_ROUNDS 16 /* this is r for CubeHashr/b */
 #define CUBEHASH_BLOCKBYTES 32 /* this is b for CubeHashr/b */
-#define TPB 32
+#define TPB 1024
 #define LROT(x, bits) __funnelshift_l(x, x, bits)
 
 #define ROTATEUPWARDS7(a)  LROT(a,7)
@@ -18,7 +18,7 @@ __device__ __forceinline__ void rrounds(uint32_t x[2][2][2][2][2])
 	int l;
 	int m;
 
-	#pragma unroll 2
+#pragma unroll 2
 	for (r = 0; r < CUBEHASH_ROUNDS; ++r) {
 
 		/* "add x_0jklm into x_1jklmn modulo 2^32" */
@@ -169,30 +169,28 @@ void __device__ __forceinline__ Update32_const(uint32_t x[2][2][2][2][2])
 
 void __device__ __forceinline__ Final(uint32_t x[2][2][2][2][2], uint32_t *hashval)
 {
-	int i;
-
 	/* "the integer 1 is xored into the last state word x_11111" */
-	x[1][1][1][1][1] ^= 1;
+	x[1][1][1][1][1] ^= 1U;
 
 	/* "the state is then transformed invertibly through 10r identical rounds" */
-	#pragma unroll 2
-	for (i = 0; i < 10; ++i) rrounds(x);
+#pragma unroll 2
+	for (int i = 0; i < 10; ++i) rrounds(x);
 
 	/* "output the first h/8 bytes of the state" */
 	hash_fromx(hashval, x);
 }
 
-__global__ __launch_bounds__(TPB, 16)
+__global__ __launch_bounds__(TPB, 1)
 void cubehash256_gpu_hash_32(uint32_t threads, uint32_t startNounce, uint2 *g_hash)
 {
-    uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
-    if (thread < threads)
-    {
+	uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
+	if (thread < threads)
+	{
 
-        uint2 Hash[4];
+		uint2 Hash[4];
 
-		
-		Hash[0]= __ldg(&g_hash[thread]);
+
+		Hash[0] = __ldg(&g_hash[thread]);
 		Hash[1] = __ldg(&g_hash[thread + 1 * threads]);	//	LOHI(Hash[2], Hash[3], __ldg(&g_hash[thread + 1 * threads]));
 		Hash[2] = __ldg(&g_hash[thread + 2 * threads]);	//	LOHI(Hash[4], Hash[5], __ldg(&g_hash[thread + 2 * threads]));
 		Hash[3] = __ldg(&g_hash[thread + 3 * threads]);	//	LOHI(Hash[6], Hash[7], __ldg(&g_hash[thread + 3 * threads]));
@@ -221,13 +219,13 @@ void cubehash256_gpu_hash_32(uint32_t threads, uint32_t startNounce, uint2 *g_ha
 		x[0][0][1][1][0] ^= Hash[3].x;
 		x[0][0][1][1][1] ^= Hash[3].y;
 
-//		rrounds(x);
+		//		rrounds(x);
 		int r;
 		int j;
 		int k;
 		int l;
 		int m;
-		
+
 		/* "add x_0jklm into x_1jklmn modulo 2^32" */
 #pragma unroll 2
 		for (j = 0; j < 2; ++j)
@@ -332,61 +330,10 @@ void cubehash256_gpu_hash_32(uint32_t threads, uint32_t startNounce, uint2 *g_ha
 
 
 #pragma unroll 1
-		for (r = 1; r < CUBEHASH_ROUNDS; ++r) 
-		{
+					for (r = 1; r < CUBEHASH_ROUNDS; ++r)
+					{
 
-			/* "add x_0jklm into x_1jklmn modulo 2^32" */
-#pragma unroll 2
-			for (j = 0; j < 2; ++j)
-#pragma unroll 2
-				for (k = 0; k < 2; ++k)
-#pragma unroll 2
-					for (l = 0; l < 2; ++l)
-#pragma unroll 2
-						for (m = 0; m < 2; ++m)
-							x[1][j][k][l][m] += x[0][j][k][l][m];
-
-			/* "rotate x_0jklm upwards by 7 bits" */
-#pragma unroll 2
-			for (j = 0; j < 2; ++j)
-#pragma unroll 2
-				for (k = 0; k < 2; ++k)
-#pragma unroll 2
-					for (l = 0; l < 2; ++l)
-#pragma unroll 2
-						for (m = 0; m < 2; ++m)
-							x[0][j][k][l][m] = ROTATEUPWARDS7(x[0][j][k][l][m]);
-
-			/* "swap x_00klm with x_01klm" */
-#pragma unroll 2
-			for (k = 0; k < 2; ++k)
-#pragma unroll 2
-				for (l = 0; l < 2; ++l)
-#pragma unroll 2
-					for (m = 0; m < 2; ++m)
-						SWAP(x[0][0][k][l][m], x[0][1][k][l][m])
-
-						/* "xor x_1jklm into x_0jklm" */
-#pragma unroll 2
-						for (j = 0; j < 2; ++j)
-#pragma unroll 2
-							for (k = 0; k < 2; ++k)
-#pragma unroll 2
-								for (l = 0; l < 2; ++l)
-#pragma unroll 2
-									for (m = 0; m < 2; ++m)
-										x[0][j][k][l][m] ^= x[1][j][k][l][m];
-
-			/* "swap x_1jk0m with x_1jk1m" */
-#pragma unroll 2
-			for (j = 0; j < 2; ++j)
-#pragma unroll 2
-				for (k = 0; k < 2; ++k)
-#pragma unroll 2
-					for (m = 0; m < 2; ++m)
-						SWAP(x[1][j][k][0][m], x[1][j][k][1][m])
-
-						/* "add x_0jklm into x_1jklm modulo 2^32" */
+						/* "add x_0jklm into x_1jklmn modulo 2^32" */
 #pragma unroll 2
 						for (j = 0; j < 2; ++j)
 #pragma unroll 2
@@ -397,27 +344,7 @@ void cubehash256_gpu_hash_32(uint32_t threads, uint32_t startNounce, uint2 *g_ha
 									for (m = 0; m < 2; ++m)
 										x[1][j][k][l][m] += x[0][j][k][l][m];
 
-			/* "rotate x_0jklm upwards by 11 bits" */
-#pragma unroll 2
-			for (j = 0; j < 2; ++j)
-#pragma unroll 2
-				for (k = 0; k < 2; ++k)
-#pragma unroll 2
-					for (l = 0; l < 2; ++l)
-#pragma unroll 2
-						for (m = 0; m < 2; ++m)
-							x[0][j][k][l][m] = ROTATEUPWARDS11(x[0][j][k][l][m]);
-
-			/* "swap x_0j0lm with x_0j1lm" */
-#pragma unroll 2
-			for (j = 0; j < 2; ++j)
-#pragma unroll 2
-				for (l = 0; l < 2; ++l)
-#pragma unroll 2
-					for (m = 0; m < 2; ++m)
-						SWAP(x[0][j][0][l][m], x[0][j][1][l][m])
-
-						/* "xor x_1jklm into x_0jklm" */
+						/* "rotate x_0jklm upwards by 7 bits" */
 #pragma unroll 2
 						for (j = 0; j < 2; ++j)
 #pragma unroll 2
@@ -426,31 +353,102 @@ void cubehash256_gpu_hash_32(uint32_t threads, uint32_t startNounce, uint2 *g_ha
 								for (l = 0; l < 2; ++l)
 #pragma unroll 2
 									for (m = 0; m < 2; ++m)
-										x[0][j][k][l][m] ^= x[1][j][k][l][m];
+										x[0][j][k][l][m] = ROTATEUPWARDS7(x[0][j][k][l][m]);
 
-			/* "swap x_1jkl0 with x_1jkl1" */
+						/* "swap x_00klm with x_01klm" */
 #pragma unroll 2
-			for (j = 0; j < 2; ++j)
+						for (k = 0; k < 2; ++k)
 #pragma unroll 2
-				for (k = 0; k < 2; ++k)
+							for (l = 0; l < 2; ++l)
 #pragma unroll 2
-					for (l = 0; l < 2; ++l)
-						SWAP(x[1][j][k][l][0], x[1][j][k][l][1])
+								for (m = 0; m < 2; ++m)
+									SWAP(x[0][0][k][l][m], x[0][1][k][l][m])
 
-		}
+									/* "xor x_1jklm into x_0jklm" */
+#pragma unroll 2
+									for (j = 0; j < 2; ++j)
+#pragma unroll 2
+										for (k = 0; k < 2; ++k)
+#pragma unroll 2
+											for (l = 0; l < 2; ++l)
+#pragma unroll 2
+												for (m = 0; m < 2; ++m)
+													x[0][j][k][l][m] ^= x[1][j][k][l][m];
+
+						/* "swap x_1jk0m with x_1jk1m" */
+#pragma unroll 2
+						for (j = 0; j < 2; ++j)
+#pragma unroll 2
+							for (k = 0; k < 2; ++k)
+#pragma unroll 2
+								for (m = 0; m < 2; ++m)
+									SWAP(x[1][j][k][0][m], x[1][j][k][1][m])
+
+									/* "add x_0jklm into x_1jklm modulo 2^32" */
+#pragma unroll 2
+									for (j = 0; j < 2; ++j)
+#pragma unroll 2
+										for (k = 0; k < 2; ++k)
+#pragma unroll 2
+											for (l = 0; l < 2; ++l)
+#pragma unroll 2
+												for (m = 0; m < 2; ++m)
+													x[1][j][k][l][m] += x[0][j][k][l][m];
+
+						/* "rotate x_0jklm upwards by 11 bits" */
+#pragma unroll 2
+						for (j = 0; j < 2; ++j)
+#pragma unroll 2
+							for (k = 0; k < 2; ++k)
+#pragma unroll 2
+								for (l = 0; l < 2; ++l)
+#pragma unroll 2
+									for (m = 0; m < 2; ++m)
+										x[0][j][k][l][m] = ROTATEUPWARDS11(x[0][j][k][l][m]);
+
+						/* "swap x_0j0lm with x_0j1lm" */
+#pragma unroll 2
+						for (j = 0; j < 2; ++j)
+#pragma unroll 2
+							for (l = 0; l < 2; ++l)
+#pragma unroll 2
+								for (m = 0; m < 2; ++m)
+									SWAP(x[0][j][0][l][m], x[0][j][1][l][m])
+
+									/* "xor x_1jklm into x_0jklm" */
+#pragma unroll 2
+									for (j = 0; j < 2; ++j)
+#pragma unroll 2
+										for (k = 0; k < 2; ++k)
+#pragma unroll 2
+											for (l = 0; l < 2; ++l)
+#pragma unroll 2
+												for (m = 0; m < 2; ++m)
+													x[0][j][k][l][m] ^= x[1][j][k][l][m];
+
+						/* "swap x_1jkl0 with x_1jkl1" */
+#pragma unroll 2
+						for (j = 0; j < 2; ++j)
+#pragma unroll 2
+							for (k = 0; k < 2; ++k)
+#pragma unroll 2
+								for (l = 0; l < 2; ++l)
+									SWAP(x[1][j][k][l][0], x[1][j][k][l][1])
+
+					}
 
 
 
-		x[0][0][0][0][0] ^= 0x80;
+		x[0][0][0][0][0] ^= 0x80U;
 		rrounds(x);
 
 		Final(x, (uint32_t *)Hash);
 
-		g_hash[thread] =               ((uint2*)Hash)[0];
+		g_hash[thread] = ((uint2*)Hash)[0];
 		g_hash[1 * threads + thread] = ((uint2*)Hash)[1];
 		g_hash[2 * threads + thread] = ((uint2*)Hash)[2];
 		g_hash[3 * threads + thread] = ((uint2*)Hash)[3];
-    }
+	}
 }
 
 
@@ -458,9 +456,9 @@ __host__
 void cubehash256_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, uint64_t *d_hash)
 {
 
-    // berechne wie viele Thread Blocks wir brauchen
-	dim3 grid((threads + (TPB) - 1) / (TPB));
+	// berechne wie viele Thread Blocks wir brauchen
+	dim3 grid((threads + (TPB)-1) / (TPB));
 	dim3 block(TPB);
 
-    cubehash256_gpu_hash_32<<<grid, block>>>(threads, startNounce, (uint2 *)d_hash);
+	cubehash256_gpu_hash_32 << <grid, block >> >(threads, startNounce, (uint2 *)d_hash);
 }
